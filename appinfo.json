@@ -5,12 +5,24 @@
     ],
     "companyName": "Katharine Berry",
     "longName": "Stopwatch",
+    "projectType": "native",
     "resources": {
         "media": [
             {
-                "characterRegex": "[:0-9]",
-                "file": "fonts/DejaVuSans-Bold.ttf",
-                "name": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
+                "file": "images/stopwatch.png",
+                "menuIcon": true,
+                "name": "IMAGE_MENU_ICON",
+                "type": "png"
+            },
+            {
+                "file": "images/buttons.png",
+                "name": "IMAGE_BUTTON_LABELS",
+                "type": "png"
+            },
+            {
+                "characterRegex": "[:0-9. ]",
+                "file": "fonts/DejaVuSans.ttf",
+                "name": "FONT_DEJAVU_SANS_SUBSET_22",
                 "type": "font"
             },
             {
@@ -20,21 +32,10 @@
                 "type": "font"
             },
             {
-                "characterRegex": "[:0-9. ]",
-                "file": "fonts/DejaVuSans.ttf",
-                "name": "FONT_DEJAVU_SANS_SUBSET_22",
+                "characterRegex": "[:0-9]",
+                "file": "fonts/DejaVuSans-Bold.ttf",
+                "name": "FONT_DEJAVU_SANS_BOLD_SUBSET_30",
                 "type": "font"
-            },
-            {
-                "file": "images/buttons.png",
-                "name": "IMAGE_BUTTON_LABELS",
-                "type": "png"
-            },
-            {
-                "file": "images/stopwatch.png",
-                "menuIcon": true,
-                "name": "IMAGE_MENU_ICON",
-                "type": "png"
             }
         ]
     },
