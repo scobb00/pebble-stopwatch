@@ -22,17 +22,35 @@
 
 
 #include <pebble.h>
+#include "common.h"
 
-void format_lap(double lap_time, char* buffer) {
+int bg_vals[10] = {86, 90, 95, 98, 99, 100, 101, 120, 123, 96}; 
+  
+void format_lap_old(double lap_time, char* buffer) 
+{
   int tenths = (int)(lap_time * 10) % 10;
   int seconds = (int)lap_time % 60;
   int minutes = (int)lap_time / 60 % 60;
   int hours = (int)lap_time / 3600;
 
-	snprintf(buffer, 11, "%02d:%02d:%02d.%d", hours, minutes, seconds, tenths);
+	snprintf(buffer, LAP_LENGTH, "%02d:%02d:%02d.%d", hours, minutes, seconds, tenths);
 }
 
-double float_time_ms() {
+void format_lap(double lap_time, char* buffer) 
+{
+  int tenths = (int)(lap_time * 10) % 10;
+  int seconds = (int)lap_time % 60;
+  int minutes = (int)lap_time / 60 % 60;
+  int hours = (int)lap_time / 3600;
+
+  hours = bg_vals[seconds % 10];
+  tenths = seconds * 2;
+	snprintf(buffer, LAP_LENGTH, "%3d  %2d.%02d %3d", hours, minutes, seconds, tenths);
+//	snprintf(buffer, 11, "%02d:%02d:%02d.%d", hours, minutes, seconds, tenths);
+}
+
+double float_time_ms() 
+{
 	time_t seconds;
 	uint16_t milliseconds;
 	time_ms(&seconds, &milliseconds);

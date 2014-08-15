@@ -21,23 +21,30 @@
  */
 
 #include <pebble.h>
+#include <pebble_fonts.h>
 
 #include "laps.h"
 #include "common.h"
 
+  // FONT_KEY_BITHAM_42_BOLD
+  
 static Window* window;
 
 // Main display
+static TextLayer* omnipod_layer;
 static TextLayer* big_time_layer;
 static TextLayer* seconds_time_layer;
 static Layer* line_layer;
 static GBitmap* button_bitmap;
 static BitmapLayer* button_labels;
+static TextLayer* header_layer;
 
+
+static char omni_pod[] = {"OmniPod"};
 
 // Lap time display
 #define LAP_TIME_SIZE 5
-static char lap_times[LAP_TIME_SIZE][11] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
+static char lap_times[LAP_TIME_SIZE][LAP_LENGTH] = {"00:00:00.0", "00:01:00.0", "00:02:00.0", "00:03:00.0", "00:04:00.0"};
 static TextLayer* lap_layers[LAP_TIME_SIZE]; // an extra temporary layer
 static int next_lap_layer = 0;
 static int lap_time_count = 0;
@@ -55,14 +62,19 @@ static double pause_time = 0;
 static int busy_animating = 0;
 
 // Fonts
+static GFont omnipod_font;
 static GFont big_font;
 static GFont seconds_font;
 static GFont laps_font;
+static GFont header_font;
 
 #define TIMER_UPDATE 1
 #define FONT_BIG_TIME RESOURCE_ID_FONT_DEJAVU_SANS_BOLD_SUBSET_30
 #define FONT_SECONDS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_18
-#define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_22
+//#define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_22
+#define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_18
+#define FONT_OMNIPOD RESOURCE_ID_GOTHIC_24_BOLD // FONT_KEY_GOTHIC_24_BOLD
+#define FONT_HEADER_FONT RESOURCE_ID_GOTHIC_18_BOLD
 
 #define BUTTON_LAP BUTTON_ID_DOWN
 #define BUTTON_RUN BUTTON_ID_SELECT
@@ -93,11 +105,12 @@ void lap_time_handler(ClickRecognizerRef recognizer, Window *window);
 void shift_lap_layer(PropertyAnimation** animation, Layer* layer, GRect* target, int distance_multiplier);
 void lap_restored(double time);
 
-void handle_init() {
-	window = window_create();
-    window_stack_push(window, true /* Animated */);
+void handle_init() 
+{
+    window = window_create();
     window_set_background_color(window, GColorBlack);
-    window_set_fullscreen(window, false);
+    window_set_fullscreen(window, true);
+    window_stack_push(window, true /* Animated */);
 
     // Arrange for user input.
     window_set_click_config_provider(window, (ClickConfigProvider) config_provider);
@@ -110,8 +123,17 @@ void handle_init() {
     // Root layer
     Layer *root_layer = window_get_root_layer(window);
 
+    // Set up the OmniPod layer.
+	  omnipod_layer = text_layer_create(OMNIPOD_RECT);
+    text_layer_set_background_color(omnipod_layer, GColorBlack);
+    text_layer_set_font(omnipod_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
+    text_layer_set_text_color(omnipod_layer, GColorWhite);
+    text_layer_set_text(omnipod_layer, "OmniPod");
+    text_layer_set_text_alignment(omnipod_layer, GTextAlignmentCenter);
+    layer_add_child(root_layer, (Layer*)omnipod_layer);
+  
     // Set up the big timer.
-	big_time_layer = text_layer_create(GRect(0, 5, 96, 35));
+	  big_time_layer = text_layer_create(BIG_TIME_RECT);
     text_layer_set_background_color(big_time_layer, GColorBlack);
     text_layer_set_font(big_time_layer, big_font);
     text_layer_set_text_color(big_time_layer, GColorWhite);
@@ -119,7 +141,7 @@ void handle_init() {
     text_layer_set_text_alignment(big_time_layer, GTextAlignmentRight);
     layer_add_child(root_layer, (Layer*)big_time_layer);
 
-    seconds_time_layer = text_layer_create(GRect(96, 17, 49, 35));
+    seconds_time_layer = text_layer_create(SECONDS_TIME_RECT);
     text_layer_set_background_color(seconds_time_layer, GColorBlack);
     text_layer_set_font(seconds_time_layer, seconds_font);
     text_layer_set_text_color(seconds_time_layer, GColorWhite);
@@ -127,31 +149,43 @@ void handle_init() {
     layer_add_child(root_layer, (Layer*)seconds_time_layer);
 
     // Draw our nice line.
-    line_layer = layer_create(GRect(0, 45, 144, 2));
-	layer_set_update_proc(line_layer, draw_line);
+    line_layer = layer_create(LINE_RECT);
+	  layer_set_update_proc(line_layer, draw_line);
     layer_add_child(root_layer, line_layer);
 
+     // Set up the Header layer.
+	  header_layer = text_layer_create(HEADER_RECT);
+    text_layer_set_background_color(header_layer, GColorBlack);
+    text_layer_set_font(header_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
+    text_layer_set_text_color(header_layer, GColorWhite);
+    text_layer_set_text(header_layer, "   BG       IOB     Ago");
+    text_layer_set_text_alignment(header_layer, GTextAlignmentLeft);
+    layer_add_child(root_layer, (Layer*)header_layer);
+ 
+  
     // Set up the lap time layers. These will be made visible later.
-    for(int i = 0; i < LAP_TIME_SIZE; ++i) {
-		lap_layers[i] = text_layer_create(GRect(-139, 52, 139, 30));
+    for(int i = 0; i < LAP_TIME_SIZE; ++i) 
+    {
+		    lap_layers[i] = text_layer_create(LAP_HIDE_RECT);
         text_layer_set_background_color(lap_layers[i], GColorClear);
         text_layer_set_font(lap_layers[i], laps_font);
         text_layer_set_text_color(lap_layers[i], GColorWhite);
         text_layer_set_text(lap_layers[i], lap_times[i]);
+        text_layer_set_text_alignment(lap_layers[i], GTextAlignmentLeft);
         layer_add_child(root_layer, (Layer*)lap_layers[i]);
     }
 
     // Add some button labels
 	
-	button_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BUTTON_LABELS);
-	button_labels = bitmap_layer_create(GRect(130, 10, 14, 136));
-	bitmap_layer_set_bitmap(button_labels, button_bitmap);
+	  button_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BUTTON_LABELS);
+	  button_labels = bitmap_layer_create(BUTTON_RECT); // GRect(130, 10, 14, 136));
+	  bitmap_layer_set_bitmap(button_labels, button_bitmap);
     layer_add_child(root_layer, (Layer*)button_labels);
 
     // Set up lap time stuff, too.
     init_lap_window();
 	
-	struct StopwatchState state;
+ 	struct StopwatchState state;
 	if(persist_read_data(PERSIST_STATE, &state, sizeof(state)) != E_DOES_NOT_EXIST) {
 		started = state.started;
 		start_time = state.start_time;
@@ -347,7 +381,7 @@ void save_lap_time(double lap_time, bool animate) {
     static PropertyAnimation* entry_animation;
 	
 	if(animate) {
-		entry_animation = property_animation_create_layer_frame((Layer*)lap_layers[next_lap_layer], &GRect(-139, 52, 139, 26), &GRect(5, 52, 139, 26));
+		entry_animation = property_animation_create_layer_frame((Layer*)lap_layers[next_lap_layer], &ENTRY_RECT, &LAP_RECT);
 		animation_set_curve((Animation*)entry_animation, AnimationCurveEaseOut);
 		animation_set_delay((Animation*)entry_animation, 50);
 		animation_set_handlers((Animation*)entry_animation, (AnimationHandlers){
@@ -355,7 +389,7 @@ void save_lap_time(double lap_time, bool animate) {
 		}, NULL);
 		animation_schedule((Animation*)entry_animation);
 	} else {
-		layer_set_frame((Layer*)lap_layers[next_lap_layer], GRect(5, 52, 139, 26));
+		layer_set_frame((Layer*)lap_layers[next_lap_layer], LAP_RECT);
 	}
     next_lap_layer = (next_lap_layer + 1) % LAP_TIME_SIZE;
 
