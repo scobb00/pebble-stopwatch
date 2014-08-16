@@ -3,8 +3,8 @@
     "capabilities": [
         ""
     ],
-    "companyName": "Katharine Berry",
-    "longName": "Stopwatch",
+    "companyName": "Insulet",
+    "longName": "OmniPod",
     "projectType": "native",
     "resources": {
         "media": [
@@ -39,7 +39,7 @@
             }
         ]
     },
-    "shortName": "Stopwatch",
+    "shortName": "OmniPod",
     "uuid": "11a1cb08-065f-491e-82c4-83b9f9cb042c",
     "versionCode": 2,
     "versionLabel": "2.0",

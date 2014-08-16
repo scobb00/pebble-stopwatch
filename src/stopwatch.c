@@ -73,6 +73,7 @@ static GFont header_font;
 #define FONT_SECONDS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_18
 //#define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_22
 #define FONT_LAPS RESOURCE_ID_FONT_DEJAVU_SANS_SUBSET_18
+//#define FONT_LAPS RESOURCE_ID_FONT_ARIAL_ALT_18
 #define FONT_OMNIPOD RESOURCE_ID_GOTHIC_24_BOLD // FONT_KEY_GOTHIC_24_BOLD
 #define FONT_HEADER_FONT RESOURCE_ID_GOTHIC_18_BOLD
 
@@ -104,6 +105,8 @@ void save_lap_time(double seconds, bool animate);
 void lap_time_handler(ClickRecognizerRef recognizer, Window *window);
 void shift_lap_layer(PropertyAnimation** animation, Layer* layer, GRect* target, int distance_multiplier);
 void lap_restored(double time);
+static void handle_second_tick(struct tm* tick_time, TimeUnits units_changed);
+
 
 void handle_init() 
 {
@@ -168,7 +171,7 @@ void handle_init()
     {
 		    lap_layers[i] = text_layer_create(LAP_HIDE_RECT);
         text_layer_set_background_color(lap_layers[i], GColorClear);
-        text_layer_set_font(lap_layers[i], laps_font);
+        text_layer_set_font(lap_layers[i], laps_font); 
         text_layer_set_text_color(lap_layers[i], GColorWhite);
         text_layer_set_text(lap_layers[i], lap_times[i]);
         text_layer_set_text_alignment(lap_layers[i], GTextAlignmentLeft);
@@ -176,11 +179,17 @@ void handle_init()
     }
 
     // Add some button labels
-	
 	  button_bitmap = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BUTTON_LABELS);
 	  button_labels = bitmap_layer_create(BUTTON_RECT); // GRect(130, 10, 14, 136));
 	  bitmap_layer_set_bitmap(button_labels, button_bitmap);
     layer_add_child(root_layer, (Layer*)button_labels);
+
+    // Ensures time is displayed immediately (will break if NULL tick event accessed).
+    // (This is why it's a good idea to have a separate routine to do the update itself.)
+    time_t now = time(NULL);
+    struct tm *current_time = localtime(&now);
+    handle_second_tick(current_time, SECOND_UNIT);
+    tick_timer_service_subscribe(SECOND_UNIT, &handle_second_tick);
 
     // Set up lap time stuff, too.
     init_lap_window();
@@ -194,7 +203,7 @@ void handle_init()
 		last_lap_time = state.last_lap_time;
 		update_stopwatch();
 		if(started) {
-			update_timer = app_timer_register(100, handle_timer, NULL);
+			update_timer = app_timer_register(TICK_BASE, handle_timer, NULL);
 			APP_LOG(APP_LOG_LEVEL_DEBUG, "Started timer to resume persisted state.");
 		}
 		APP_LOG(APP_LOG_LEVEL_DEBUG, "Loaded persisted state.");
@@ -261,7 +270,7 @@ void start_stopwatch() {
 		double interval = float_time_ms() - pause_time;
 		start_time += interval;
 	}
-    update_timer = app_timer_register(100, handle_timer, NULL);
+    update_timer = app_timer_register(TICK_BASE, handle_timer, NULL);
 }
 
 void toggle_stopwatch_handler(ClickRecognizerRef recognizer, Window *window) {
@@ -328,8 +337,9 @@ void update_stopwatch() {
 	}
 
     // Now draw the strings.
-    text_layer_set_text(big_time_layer, big_time);
-    text_layer_set_text(seconds_time_layer, hours < 1 ? deciseconds_time : seconds_time);
+    // text_layer_set_text(big_time_layer, big_time);  // --scobb hacked
+    // text_layer_set_text(seconds_time_layer, hours < 1 ? deciseconds_time : seconds_time);
+    text_layer_set_text(seconds_time_layer, seconds_time);
 }
 
 void animation_stopped(Animation *animation, void *data) {
@@ -401,7 +411,7 @@ void handle_timer(void* data) {
 	if(started) {
 		double now = float_time_ms();
 		elapsed_time = now - start_time;
-		update_timer = app_timer_register(100, handle_timer, NULL);
+		update_timer = app_timer_register(TICK_BASE, handle_timer, NULL);
 	}
 	update_stopwatch();
 }
@@ -422,4 +432,22 @@ int main() {
 	app_event_loop();
 	handle_deinit();
 	return 0;
+}
+
+// Called once per second
+static void handle_second_tick(struct tm* tick_time, TimeUnits units_changed) 
+{
+  static char time_text[] = "00:00:00"; // Needs to be static because it's used by the system later.
+  static char date_text[] = "Sun 01. jan"; // Needs to be static because it's used by the system later.
+
+  // strftime(time_text, sizeof(time_text), "%T", tick_time);
+  strftime(time_text, sizeof(time_text), "%R", tick_time);
+  
+  text_layer_set_text(big_time_layer, time_text);  
+//  text_layer_set_text(time_layer, time_text);
+
+//  strftime(date_text, sizeof(date_text), "%a %d. %b", tick_time);
+//  text_layer_set_text(date_layer, date_text);
+
+//  handle_battery(battery_state_service_peek());
 }

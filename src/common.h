@@ -24,6 +24,8 @@
 #define PERSIST_STATE 1
 #define PERSIST_LAPS 4
 #define LAP_LENGTH 16
+  
+  #define TICK_BASE   1000 // 100
 
 void format_lap(double lap_time, char* buffer);
 double float_time_ms();
